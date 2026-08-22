@@ -48,42 +48,57 @@ if exist "%BASE%adb\adb.exe" (
     echo [ok] ADB tools ready.
 )
 
-rem ============ 3) Android ISO ============
+rem ============ 3) Choose Android version ============
 set "ISO="
 for /f "delims=" %%I in ('dir /b /s "%BASE%android\*.iso" 2^>nul') do set "ISO=%%~fI"
+
 if not defined ISO (
-    echo [3/4] Android system image not found in android\ folder.
-    echo        Downloading the Android-x86 image ^(966 MB, one time^) from GitHub release...
+    echo [3/4] No Android image found in the android\ folder.
+    echo        Download one from the GitHub release page and put it in the android\ folder:
+    echo          - CLASSIC: android-x86_64-9.0-r2.iso  (Android 9 - most stable, biggest app library)
+    echo          - MODERN : Bliss-OS-12-Android12.1-libndk.iso  (Android 12 - latest apps, ARM64)
+    echo        Or download CLASSIC automatically now ^(966 MB, one time^)...
     powershell -NoProfile -Command "$ErrorActionPreference='Stop'; [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; try { Start-BitsTransfer -Source 'https://github.com/FAkeUsership/mr-free/releases/latest/download/android-x86_64-9.0-r2.iso' -Destination '%BASE%android\android-x86_64-9.0-r2.iso' } catch { Invoke-WebRequest -Uri 'https://github.com/FAkeUsership/mr-free/releases/latest/download/android-x86_64-9.0-r2.iso' -OutFile '%BASE%android\android-x86_64-9.0-r2.iso' }"
     for /f "delims=" %%I in ('dir /b /s "%BASE%android\*.iso" 2^>nul') do set "ISO=%%~fI"
     if not defined ISO ( echo [FAIL] Android image download failed. & goto :end )
-    echo [ok] Android image downloaded.
-) else (
-    echo [3/4] Android image: present
 )
 
-rem ============ 4) Disk image ============
-if not exist "%BASE%images\android.img" (
-    echo [4/4] Creating 8 GB Android disk ^(only uses space as it fills^)...
-    mkdir "%BASE%images" 2>nul
-    "%QIMG%" create -f qcow2 "%BASE%images\android.img" 8G
-    if errorlevel 1 ( echo [FAIL] Could not create disk image. & goto :end )
+for %%I in ("%ISO%") do set "ISONAME=%%~nI"
+echo [3/4] Android image found: %ISONAME%
+
+set "DISK=android9.img"
+echo "%ISONAME%" | findstr /I "bliss a12 12.1 android12" >nul 2>&1 && set "DISK=android12.img"
+echo "%ISONAME%" | findstr /I "android-x86 9.0 r2" >nul 2>&1 && set "DISK=android9.img"
+
+rem if user already installed the other version, keep their choice
+if exist "%BASE%images\android12.img" if not exist "%BASE%images\android9.img" set "DISK=android12.img"
+if exist "%BASE%images\android9.img"  if not exist "%BASE%images\android12.img" set "DISK=android9.img"
+
+if exist "%BASE%images\%DISK%" (
+    echo [4/4] Android disk %DISK% already installed - keeping it.
 ) else (
-    echo [4/4] Android disk already exists.
+    echo [4/4] Creating 8 GB disk for %DISK% ^(only uses space as it fills^)...
+    mkdir "%BASE%images" 2>nul
+    "%QIMG%" create -f qcow2 "%BASE%images\%DISK%" 8G
+    if errorlevel 1 ( echo [FAIL] Could not create disk image. & goto :end )
 )
 
 rem ============ settings.ini ============
+set "DISPATH=%BASE%images\%DISK%"
+
 >  "%BASE%settings.ini" echo [Engine]
 >> "%BASE%settings.ini" echo qemu=%QSYS%
 >> "%BASE%settings.ini" echo qemu_img=%QIMG%
->> "%BASE%settings.ini" echo disk=%BASE%images\android.img
+>> "%BASE%settings.ini" echo disk=%DISPATH%
 >> "%BASE%settings.ini" echo disk_format=qcow2
 >> "%BASE%settings.ini" echo adb=%BASE%adb\adb.exe
 >> "%BASE%settings.ini" echo.
 >> "%BASE%settings.ini" echo [Emulator]
 >> "%BASE%settings.ini" echo ram_mb=2048
 >> "%BASE%settings.ini" echo cores=2
-echo [ok] settings.ini written.
+echo [ok] settings.ini written ^(disk = %DISK%^).
+echo.
+echo   To switch versions later: open AndroidRun.exe - click SWITCH ANDROID.
 
 rem ============ One-time Android install into the disk ============
 echo.
@@ -114,7 +129,7 @@ echo   ARM APPS: after Android boots, click "ENABLE ARM (1-time)".
 echo ================================================================
 echo.
 pause
-"%QSYS%" -m 2048 -smp 2 -accel whpx:tcg -cdrom "%ISO%" -hda "%BASE%images\android.img" -boot d -vga std -usb -device usb-tablet
+"%QSYS%" -m 2048 -smp 2 -accel whpx:tcg -cdrom "%ISO%" -hda "%DISPATH%" -boot d -vga std -usb -device usb-tablet
 
 echo.
 echo ================================================================
@@ -127,7 +142,7 @@ echo   (First boot takes a few minutes. Be patient.)
 echo ================================================================
 echo.
 pause
-start "" /b "%QSYS%" -m 2048 -smp 2 -accel whpx:tcg -hda "%BASE%images\android.img" -boot c -vga std -usb -device usb-tablet
+start "" /b "%QSYS%" -m 2048 -smp 2 -accel whpx:tcg -hda "%DISPATH%" -boot c -vga std -usb -device usb-tablet
 
 echo [A] Starting adb...
 "%BASE%adb\adb.exe" start-server >nul 2>&1
