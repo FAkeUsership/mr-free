@@ -1,0 +1,130 @@
+@echo off
+setlocal EnableDelayedExpansion
+title AndroidRun - Setup
+mode con cols=100 lines=40
+cd /d "%~dp0"
+
+echo ================================================================
+echo   AndroidRun - Self-Contained Setup  (works 100%% OFFLINE)
+echo ================================================================
+echo.
+echo   Everything you need is bundled in this package:
+echo     - QEMU 11.1     (the machine engine, GPL open source)
+echo     - Android-x86 9 (Android OS, x86_64 + ARM 32-bit apps)
+echo     - ADB tools     (APK installer)
+echo   No ads. No account. No internet needed.
+echo ================================================================
+echo.
+
+set "BASE=%~dp0"
+
+rem ============ 1) QEMU engine ============
+set "QSYS="
+if exist "%BASE%engine\qemu\qemu-system-x86_64.exe" set "QSYS=%BASE%engine\qemu\qemu-system-x86_64.exe"
+if not defined QSYS (
+    echo [1/4] QEMU engine not found in this folder.
+    echo        Downloading it from the official GitHub release ^(one time^)...
+    powershell -NoProfile -Command "$ErrorActionPreference='Stop'; [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; try { Start-BitsTransfer -Source 'https://github.com/FAkeUsership/mr-free/releases/latest/download/qemu-portable-w64-11.1.0.zip' -Destination '%BASE%qemu-portable.zip' } catch { Invoke-WebRequest -Uri 'https://github.com/FAkeUsership/mr-free/releases/latest/download/qemu-portable-w64-11.1.0.zip' -OutFile '%BASE%qemu-portable.zip' }"
+    if not exist "%BASE%qemu-portable.zip" ( echo [FAIL] QEMU download failed. Check internet or copy the full package. & goto :end )
+    powershell -NoProfile -Command "Expand-Archive -Path '%BASE%qemu-portable.zip' -DestinationPath '%BASE%' -Force"
+    if exist "%BASE%engine\qemu\qemu-system-x86_64.exe" ( set "QSYS=%BASE%engine\qemu\qemu-system-x86_64.exe" ) else ( echo [FAIL] QEMU extraction failed. & goto :end )
+    echo [ok] QEMU engine ready.
+) else (
+    echo [1/4] QEMU engine: present ^(bundled^)
+)
+set "QIMG=%BASE%engine\qemu\qemu-img.exe"
+if not exist "%QIMG%" ( echo [FAIL] qemu-img.exe missing. & goto :end )
+
+rem ============ 2) ADB ============
+if exist "%BASE%adb\adb.exe" (
+    echo [2/4] ADB tools: present ^(bundled^)
+) else (
+    echo [2/4] ADB tools not found. Downloading...
+    powershell -NoProfile -Command "$ErrorActionPreference='Stop'; [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; try { Start-BitsTransfer -Source 'https://github.com/FAkeUsership/mr-free/releases/latest/download/platform-tools-windows.zip' -Destination '%BASE%platform-tools.zip' } catch { Invoke-WebRequest -Uri 'https://github.com/FAkeUsership/mr-free/releases/latest/download/platform-tools-windows.zip' -OutFile '%BASE%platform-tools.zip' }"
+    if not exist "%BASE%platform-tools.zip" ( echo [FAIL] ADB download failed. & goto :end )
+    powershell -NoProfile -Command "Expand-Archive -Path '%BASE%platform-tools.zip' -DestinationPath '%BASE%' -Force"
+    if not exist "%BASE%adb\adb.exe" ( echo [FAIL] ADB extraction failed. & goto :end )
+    echo [ok] ADB tools ready.
+)
+
+rem ============ 3) Android ISO ============
+set "ISO="
+for /f "delims=" %%I in ('dir /b /s "%BASE%android\*.iso" 2^>nul') do set "ISO=%%~fI"
+if not defined ISO (
+    echo [3/4] Android system image not found in android\ folder.
+    echo        Downloading the Android-x86 image ^(966 MB, one time^) from GitHub release...
+    powershell -NoProfile -Command "$ErrorActionPreference='Stop'; [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; try { Start-BitsTransfer -Source 'https://github.com/FAkeUsership/mr-free/releases/latest/download/android-x86_64-9.0-r2.iso' -Destination '%BASE%android\android-x86_64-9.0-r2.iso' } catch { Invoke-WebRequest -Uri 'https://github.com/FAkeUsership/mr-free/releases/latest/download/android-x86_64-9.0-r2.iso' -OutFile '%BASE%android\android-x86_64-9.0-r2.iso' }"
+    for /f "delims=" %%I in ('dir /b /s "%BASE%android\*.iso" 2^>nul') do set "ISO=%%~fI"
+    if not defined ISO ( echo [FAIL] Android image download failed. & goto :end )
+    echo [ok] Android image downloaded.
+) else (
+    echo [3/4] Android image: present
+)
+
+rem ============ 4) Disk image ============
+if not exist "%BASE%images\android.img" (
+    echo [4/4] Creating 8 GB Android disk ^(only uses space as it fills^)...
+    mkdir "%BASE%images" 2>nul
+    "%QIMG%" create -f qcow2 "%BASE%images\android.img" 8G
+    if errorlevel 1 ( echo [FAIL] Could not create disk image. & goto :end )
+) else (
+    echo [4/4] Android disk already exists.
+)
+
+rem ============ settings.ini ============
+>  "%BASE%settings.ini" echo [Engine]
+>> "%BASE%settings.ini" echo qemu=%QSYS%
+>> "%BASE%settings.ini" echo qemu_img=%QIMG%
+>> "%BASE%settings.ini" echo disk=%BASE%images\android.img
+>> "%BASE%settings.ini" echo disk_format=qcow2
+>> "%BASE%settings.ini" echo adb=%BASE%adb\adb.exe
+>> "%BASE%settings.ini" echo.
+>> "%BASE%settings.ini" echo [Emulator]
+>> "%BASE%settings.ini" echo ram_mb=2048
+>> "%BASE%settings.ini" echo cores=2
+echo [ok] settings.ini written.
+
+rem ============ One-time Android install into the disk ============
+echo.
+echo ================================================================
+echo   LAST STEP - install Android into the disk ^(ONE TIME, ~10 min^)
+echo ================================================================
+echo   A QEMU window will open booting the Android installer.
+echo   Do EXACTLY this:
+echo.
+echo   1. In the menu select:   "Installation - Install Android to harddisk"
+echo   2. Partition: choose "Create/Modify partitions"
+echo        - "Do you want to use GPT?"  - select  No
+echo        - Select  New     - press Enter on the size - select  Primary
+echo        - Select  Bootable
+echo        - Select  Write   - type  yes  - press Enter
+echo        - Select  Quit
+echo   3. "Select a partition to install Android":  sda1
+echo      Filesystem:  ext4     -  confirm  yes  to format
+echo   4. "Install GRUB?"  -  Yes
+echo      "Install /system as read-write?"  -  Yes
+echo   5. When it finishes, it asks to REBOOT:  just CLOSE the QEMU
+echo      window ^(press X^) - do not let it reboot into the installer.
+echo.
+echo   Then run  AndroidRun.exe, click START, and Android boots from
+echo   the disk. Everything after this is 100%% OFFLINE.
+echo ================================================================
+echo.
+pause
+"%QSYS%" -m 2048 -smp 2 -accel whpx:tcg -cdrom "%ISO%" -hda "%BASE%images\android.img" -boot d -vga std -usb -device usb-tablet
+
+echo.
+echo ================================================================
+echo   DONE. Run  AndroidRun.exe  now.   ^(Offline from now on.^)
+echo.
+echo   For FULL SPEED, enable "Windows Hypervisor Platform":
+echo     Start menu - search "Turn Windows features on or off"
+echo     tick "Windows Hypervisor Platform"  -  restart PC
+echo   Without it, it still works, just in software mode (slower).
+echo ================================================================
+pause
+
+:end
+echo.
+echo Setup finished. Check the messages above.
+pause
