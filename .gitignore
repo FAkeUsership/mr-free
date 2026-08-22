@@ -1,0 +1,24 @@
+# build artifacts
+src/app.o
+*.o
+
+# downloads (setup.bat fetches these; don't commit 1 GB zips by accident)
+*.zip
+platform-tools.zip
+qemu-portable.zip
+
+# runtime scratch files AndroidRun writes next to the exe
+adb_*.txt
+pkgs_before.txt
+pkgs_after.txt
+
+# heavy runtime folders (created by setup on the user's machine)
+engine/
+adb/
+android/
+images/
+arm/*.sfs
+
+# OS junk
+Thumbs.db
+Desktop.ini

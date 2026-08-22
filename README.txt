@@ -1,119 +1,70 @@
-AndroidRun - Self-Contained Android APK Player for Windows 10/11 64-bit
-========================================================================
+================================================================
+ AndroidRun v1.4 - Offline Android APK Player for Windows 10/11
+================================================================
 
-WHAT THIS IS
-------------
-A standalone, minimal program: drag & drop an .apk file onto the
-window and it installs + launches it in a real Android system running
-on your PC. No ads, no account, no tracking. Fully self-contained,
-works 100% OFFLINE after one-time setup.
+DRAG & DROP any .apk onto the window -> it installs AND launches
+it inside a real Android running on your PC. Offline. No ads.
 
-TWO ANDROID VERSIONS (choose what fits your apps)
--------------------------------------------------
-1) CLASSIC - Android 9 (android-x86 9.0-r2)
-   - MOST STABLE, biggest app library, lowest requirements
-   - Runs: x86/x86_64/universal APKs + 32-bit ARM APKs (after
-     one-click ENABLE ARM)
-   - File: android\android-x86_64-9.0-r2.iso (included in the zip)
+----------------------------------------------------------------
+FIRST TIME (one setup, ~10 minutes)
+----------------------------------------------------------------
+ 1. Extract the full ZIP somewhere (e.g. C:\AndroidRun)
+ 2. Double-click setup.bat
+ 3. Follow the on-screen Android installer steps
+ 4. Do the ONE MANUAL STEP when setup tells you:
 
-2) MODERN - Android 12.1 (Bliss OS 12, libndk)
-   - LATEST apps & games, ARM64 app support (libndk translation)
-   - Newer apps that refuse Android 9 will install here
-   - Alpha-level: can be less stable than Classic
-   - File: download "Bliss-OS-12-Android12.1-libndk.iso" from the
-     GitHub release and put it in the android\ folder
+      At the Android home screen press Alt+F1, type:
 
-How to switch: in AndroidRun.exe click "SWITCH ANDROID 9/12"
-(the version must be installed first via setup.bat).
+          echo service.adb.tcp.port=5555 >> /system/build.prop
 
-APP SUPPORT (honest, by version)
---------------------------------
-                     CLASSIC (A9)     MODERN (A12.1)
-x86 / x86_64 APKs      YES              YES
-32-bit ARM APKs        YES (ENABLE ARM) YES (built-in)
-ARM64-only APKs        NO               PARTIAL (libndk - works
-                                         for many, not all)
-Apps needing Android 10+ NO             YES
-Apps needing Android 12+ NO             YES (12.1)
-Stability              HIGH             MEDIUM (alpha)
+      then type:  reboot -f   and press Enter.
 
-- ARM64-only APKs that even libndk cannot translate: cannot run on
-  ANY Windows emulator (BlueStacks included). Hard technical limit.
-- Some apps block "PC/emulator" devices by design; not fixable.
+    (Bliss OS: try Ctrl+Alt+F1 instead. Alt+F7 = back to graphics.)
+    This gives the app its "phone line" to Android. One time only.
 
-WHY IT IS ~1 GB
----------------
-A real Android OS image is ~1 GB, plus the QEMU engine (~170 MB) and
-the ARM engine (43 MB). Anyone selling a 10 MB "Android emulator exe"
-is lying to you (usually malware). This is the honest, working
-version of that idea: one package with everything inside.
+ 5. Open AndroidRun.exe -> START -> wait for "Android is READY"
+    -> drag & drop APKs. Works offline forever after this.
 
-FILES
------
-AndroidRun.exe          the program (drag & drop APK installs)
-setup.bat               one-time setup (~10 min, OFFLINE) - asks
-                        which Android version to use
-arm_enable.bat          one-click ARM support (Classic only)
-arm\houdini9_y.sfs      ARM 32-bit translation engine (Classic)
-settings.ini            RAM / cores / paths / active disk
-README.txt              this file
-LICENSE.txt             licenses (GPL-2.0 + Apache)
-adb\                    ADB installer tool (bundled)
-engine\qemu\            QEMU engine (bundled)
-android\                Android system images (bundled + optional)
+----------------------------------------------------------------
+SPEED (hardware acceleration)
+----------------------------------------------------------------
+The start log shows whether WHPX hardware acceleration is ON.
+If it says OFF, do this once:
+  Start menu -> "Turn Windows features on or off"
+  -> tick "Windows Hypervisor Platform" -> restart PC.
+Also make sure VT-x (Intel) / SVM (AMD) is enabled in BIOS.
+NVIDIA GPU owners: leave gpu=1 in settings.ini (default) - the
+window renders with OpenGL on your GPU.
 
-FIRST TIME (~15 minutes, fully offline)
----------------------------------------
-1. Run  setup.bat
-   - it finds the bundled engine automatically, asks which Android
-   - then a QEMU window opens with the Android installer
-   - follow the on-screen instructions (install to disk, ~10 min)
-2. Run  AndroidRun.exe  ->  click  START EMULATOR
-   - first boot takes a few minutes; the log says when Android is ready
-3. (Classic only, for ARM apps) click  ENABLE ARM (1-time)
-4. Drag & drop an .apk onto the window -> installed + launched.
+----------------------------------------------------------------
+BUTTONS
+----------------------------------------------------------------
+ START EMULATOR - boots Android (uses settings.ini)
+ STOP           - hard stop + clean adb disconnect
+ INSTALL APK... - file picker alternative to drag & drop
+ SETUP (1-time) - runs setup.bat
+ SETTINGS       - opens settings.ini in notepad
+ ENABLE ARM     - one-time 32-bit ARM app support (Classic only)
+ SWITCH ANDROID - toggle Android 9 <-> Android 12 (both installed)
 
-INSTALLING THE MODERN (ANDROID 12) OPTION
------------------------------------------
-1. Download  Bliss-OS-12-Android12.1-libndk.iso  from the GitHub
-   release page
-2. Put it in the android\ folder (next to the Android 9 iso)
-3. Run setup.bat - it detects it and asks which version to install
-4. Or if Android 9 is already installed: click SWITCH ANDROID in the
-   program, stop the emulator, run setup.bat to install Android 12.
+----------------------------------------------------------------
+ADVANCED: settings.ini
+----------------------------------------------------------------
+ ram_mb=4096   memory
+ cores=4       cpu cores
+ accel=whpx:tcg  hardware accel with software fallback (keep this)
+ cpu=max       fastest cpu model
+ gpu=1         OpenGL window (0 if window looks broken)
+ audio=dsound  ("none" if QEMU errors on audio)
 
-EVERYDAY USE
-------------
-1. Run AndroidRun.exe
-2. Click START EMULATOR, wait for "Android is READY"
-3. Drag & drop APK files anytime. 100% offline, forever.
+----------------------------------------------------------------
+PROBLEMS?
+----------------------------------------------------------------
+ - "READY" never shows on very first boot -> do the Alt+F1 step.
+ - Install error NO_MATCHING_ABIS -> ARM64-only app; use the
+   MODERN (Android 12) build, or enable ARM for 32-bit ARM apps.
+ - Slow -> WHPX is off; the log tells you exactly how to enable it.
+ - Everything else -> read the Log panel; it explains every error.
 
-REQUIREMENTS
-------------
-- Windows 10 / 11 - 64-bit
-- 4 GB RAM recommended (2 GB works)
-- ~3 GB free disk space (Android 12 image uses more)
-- Virtualization (VT-x/AMD-V) NOT required, but strongly helps speed.
-  Enable "Windows Hypervisor Platform" in Windows features for full
-  speed. Without it, it still runs, just slower.
-
-TROUBLESHOOTING
----------------
-- "Windows protected your PC" -> More info -> Run anyway (unsigned)
-- Slow -> enable "Windows Hypervisor Platform" + reboot
-- INSTALL_FAILED_NO_MATCHING_ABIS:
-     * on CLASSIC -> it may be ARM64-only; try MODERN (Android 12)
-     * 32-bit ARM app on CLASSIC -> did you run ENABLE ARM first?
-- App crashes on MODERN -> it is alpha; try CLASSIC instead
-- Small screen -> F11 for fullscreen inside the Android window
-- RAM/cores -> edit settings.ini (open via SETTINGS button)
-
-BUILD FROM SOURCE
------------------
-The launcher is open source (GPL-2.0). See src\ and build.sh.
-QEMU: https://www.qemu.org
-Android-x86: https://www.android-x86.org
-Bliss OS: https://blissos.org  (Android 12.1 libndk build archived at
-https://archive.org/details/android_x86_64-a12.1_r1-03.16.22-01-mesa22-ksu-gapps-libndk-sd)
-
-Downloads / updates: https://github.com/FAkeUsership/mr-free/releases
+GPL-2.0-or-later. Source: ./src (build.sh builds on Linux w/ mingw).
+================================================================

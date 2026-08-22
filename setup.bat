@@ -5,7 +5,7 @@ mode con cols=100 lines=40
 cd /d "%~dp0"
 
 echo ================================================================
-echo   AndroidRun - Self-Contained Setup  (works 100%% OFFLINE)
+echo   AndroidRun v1.4 - Self-Contained Setup  (works 100%% OFFLINE)
 echo ================================================================
 echo.
 echo   Everything you need is bundled in this package:
@@ -13,7 +13,7 @@ echo     - QEMU 11.1     (the machine engine, GPL open source)
 echo     - Android-x86 9 (Android OS, x86_64 + ARM 32-bit apps)
 echo     - ARM engine    (houdini - runs 32-bit ARM APKs)
 echo     - ADB tools     (APK installer)
-echo   No ads. No account. No internet needed.
+echo   No ads. No account. No internet needed after setup.
 echo ================================================================
 echo.
 
@@ -94,8 +94,12 @@ set "DISPATH=%BASE%images\%DISK%"
 >> "%BASE%settings.ini" echo adb=%BASE%adb\adb.exe
 >> "%BASE%settings.ini" echo.
 >> "%BASE%settings.ini" echo [Emulator]
->> "%BASE%settings.ini" echo ram_mb=2048
->> "%BASE%settings.ini" echo cores=2
+>> "%BASE%settings.ini" echo ram_mb=4096
+>> "%BASE%settings.ini" echo cores=4
+>> "%BASE%settings.ini" echo accel=whpx:tcg
+>> "%BASE%settings.ini" echo cpu=max
+>> "%BASE%settings.ini" echo gpu=1
+>> "%BASE%settings.ini" echo audio=dsound
 echo [ok] settings.ini written ^(disk = %DISK%^).
 echo.
 echo   To switch versions later: open AndroidRun.exe - click SWITCH ANDROID.
@@ -129,51 +133,76 @@ echo   ARM APPS: after Android boots, click "ENABLE ARM (1-time)".
 echo ================================================================
 echo.
 pause
-"%QSYS%" -m 2048 -smp 2 -accel whpx:tcg -cdrom "%ISO%" -hda "%DISPATH%" -boot d -vga std -usb -device usb-tablet
+"%QSYS%" -m 4096 -smp 4 -machine accel=whpx:tcg -cpu max -cdrom "%ISO%" -hda "%DISPATH%" -boot d -vga std -usb -device usb-tablet -rtc base=localtime
 
 echo.
 echo ================================================================
-echo   DONE installing. Now let's auto-enable ARM support so 32-bit
-echo   ARM apps work WITHOUT you having to click anything later.
-echo ================================================================
-echo   Android will boot once from the disk. Wait until you see the
-echo   Android home screen, then this window will finish the job.
-echo   (First boot takes a few minutes. Be patient.)
+echo   *** IMPORTANT - DO THIS NOW (one time) ***
+echo   Android's installer is done. We now boot the installed system
+echo   once so we can give it a "phone line" (ADB over network).
+echo   Without this the app can never talk to Android.
+echo.
+echo   Steps in the Android window that is about to open:
+echo     1. Wait for the Android home screen (a few minutes, first boot
+echo        is slower - this is normal).
+echo     2. Press  Alt + F1   (a black text console appears; in Bliss OS
+echo        try Ctrl + Alt + F1 if plain Alt+F1 does nothing).
+echo     3. Type EXACTLY this line and press Enter:
+echo.
+echo          echo service.adb.tcp.port=5555 >> /system/build.prop
+echo.
+echo     4. Type:   reboot -f     and press Enter.
+echo        (Or just close the window and use AndroidRun to start it.)
+echo     5. Press Alt + F7 to go back to the graphics screen.
+echo.
+echo   That's it. After this, everything works forever from the app.
 echo ================================================================
 echo.
 pause
-start "" /b "%QSYS%" -m 2048 -smp 2 -accel whpx:tcg -hda "%DISPATH%" -boot c -vga std -usb -device usb-tablet
+start "" /b "%QSYS%" -m 4096 -smp 4 -machine accel=whpx:tcg -cpu max -hda "%DISPATH%" -boot c -vga std -usb -device usb-tablet -rtc base=localtime -netdev user,id=n1,hostfwd=tcp:127.0.0.1:5555-:5555 -device e1000,netdev=n1
 
 echo [A] Starting adb...
 "%BASE%adb\adb.exe" start-server >nul 2>&1
+echo [A] Connecting to Android (you did the Alt+F1 step, right?)...
+"%BASE%adb\adb.exe" connect 127.0.0.1:5555 >nul 2>&1
 echo [A] Waiting for Android to boot ^(up to ~5 min, first boot is slow^)...
-"%BASE%adb\adb.exe" wait-for-device
 
 :waitboot
-"%BASE%adb\adb.exe" shell getprop sys.boot_completed 2>nul | findstr /r "^1" >nul 2>&1
+"%BASE%adb\adb.exe" connect 127.0.0.1:5555 >nul 2>&1
+"%BASE%adb\adb.exe" -s 127.0.0.1:5555 shell getprop sys.boot_completed 2>nul | findstr /r "^1" >nul 2>&1
 if errorlevel 1 (
     timeout /t 5 /nobreak >nul
     goto waitboot
 )
-echo [A] Android is up. Copying ARM engine...
-"%BASE%adb\adb.exe" shell mkdir -p /sdcard/arm
-"%BASE%adb\adb.exe" push "%BASE%arm\houdini9_y.sfs" /sdcard/arm/houdini9_y.sfs >nul
-if not exist "%BASE%arm\houdini9_y.sfs" ( echo [A] ARM engine file not found - you can click ENABLE ARM later in the program. & goto armdone )
-"%BASE%adb\adb.exe" root >nul 2>&1
-"%BASE%adb\adb.exe" wait-for-device
-"%BASE%adb\adb.exe" shell su -c "mkdir -p /data/arm && cp /sdcard/arm/houdini9_y.sfs /data/arm/houdini9_y.sfs" >nul 2>&1
-"%BASE%adb\adb.exe" shell su -c "sh /system/bin/enable_nativebridge" >nul 2>&1
-echo [A] ARM support is ON now. Close the Android window ^(press X^).
+echo [A] Android is up.
+
+if not exist "%BASE%arm\houdini9_y.sfs" (
+    echo [A] ARM engine file not found - you can click ENABLE ARM later in the program.
+    goto armdone
+)
+echo [A] ARM engine found - installing it so 32-bit ARM apps work...
+"%BASE%adb\adb.exe" -s 127.0.0.1:5555 shell mkdir -p /sdcard/arm
+"%BASE%adb\adb.exe" -s 127.0.0.1:5555 push "%BASE%arm\houdini9_y.sfs" /sdcard/arm/houdini9_y.sfs
+if errorlevel 1 ( echo [A] Push failed - you can click ENABLE ARM later. & goto armdone )
+"%BASE%adb\adb.exe" -s 127.0.0.1:5555 root >nul 2>&1
+"%BASE%adb\adb.exe" connect 127.0.0.1:5555 >nul 2>&1
+"%BASE%adb\adb.exe" -s 127.0.0.1:5555 wait-for-device
+"%BASE%adb\adb.exe" -s 127.0.0.1:5555 shell su -c "mkdir -p /data/arm && cp /sdcard/arm/houdini9_y.sfs /data/arm/houdini9_y.sfs" >nul 2>&1
+"%BASE%adb\adb.exe" -s 127.0.0.1:5555 shell su -c "sh /system/bin/enable_nativebridge" >nul 2>&1
+echo [A] ARM support is ON now. 32-bit ARM apps will just work.
+
 :armdone
 echo.
 echo ================================================================
 echo   ALL DONE. From now on:
 echo     Run AndroidRun.exe - START - wait for "Android is READY" -
-echo     drag & drop APKs. ARM apps work, no extra clicks.
+echo     drag ^& drop APKs. ARM apps work, no extra clicks.
 echo.
 echo   For FULL SPEED, enable "Windows Hypervisor Platform":
 echo     Start menu - search "Turn Windows features on or off"
 echo     tick "Windows Hypervisor Platform"  -  restart PC
+echo   (Also enable VT-x / SVM in BIOS. NVIDIA GPU + gpu=1 in
+echo    settings.ini = fast smooth window. No bloat. No errors.)
 echo ================================================================
 pause
 
