@@ -23,11 +23,10 @@
 
 | File | Size | What |
 | --- | --- | --- |
-| ⭐ **AndroidRun-SelfContained-v1.2.zip** | 1.06 GB | FULL package: launcher + QEMU + Android 9 (Classic) + ARM engine + ADB |
-| **Bliss-OS-12-Android12.1-libndk.iso** | 1.23 GB | MODERN Android 12.1 (add to `android\` folder) |
-| updated-setup-modern.bat | 10 KB | setup with Modern/Classic choice |
-| AndroidRun.exe-switch | 95 KB | launcher with SWITCH ANDROID button |
-| README-modern.txt | 5 KB | full dual-version guide |
+| ⭐ **AndroidRun-SelfContained-v1.4.zip** | 1.06 GB | FULL package: fixed launcher + QEMU + Android 9 (Classic) + ARM engine + ADB |
+| AndroidRun.exe | 42 KB | launcher only — drop into an existing v1.2 folder to repair it |
+| updated-setup-modern.bat | 11 KB | fixed setup (works for both Classic & Modern ISO) |
+| **Bliss-OS-12-Android12.1-libndk.iso** ([v1.3 release](https://github.com/FAkeUsership/mr-free/releases/tag/v1.3)) | 1.32 GB | MODERN Android 12.1 (add to `android\` folder, then re-run setup.bat) |
 
 ## 🚀 Quick Start
 
