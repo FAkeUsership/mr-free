@@ -118,12 +118,47 @@ pause
 
 echo.
 echo ================================================================
-echo   DONE. Run  AndroidRun.exe  now.   ^(Offline from now on.^)
+echo   DONE installing. Now let's auto-enable ARM support so 32-bit
+echo   ARM apps work WITHOUT you having to click anything later.
+echo ================================================================
+echo   Android will boot once from the disk. Wait until you see the
+echo   Android home screen, then this window will finish the job.
+echo   (First boot takes a few minutes. Be patient.)
+echo ================================================================
+echo.
+pause
+start "" /b "%QSYS%" -m 2048 -smp 2 -accel whpx:tcg -hda "%BASE%images\android.img" -boot c -vga std -usb -device usb-tablet
+
+echo [A] Starting adb...
+"%BASE%adb\adb.exe" start-server >nul 2>&1
+echo [A] Waiting for Android to boot ^(up to ~5 min, first boot is slow^)...
+"%BASE%adb\adb.exe" wait-for-device
+
+:waitboot
+"%BASE%adb\adb.exe" shell getprop sys.boot_completed 2>nul | findstr /r "^1" >nul 2>&1
+if errorlevel 1 (
+    timeout /t 5 /nobreak >nul
+    goto waitboot
+)
+echo [A] Android is up. Copying ARM engine...
+"%BASE%adb\adb.exe" shell mkdir -p /sdcard/arm
+"%BASE%adb\adb.exe" push "%BASE%arm\houdini9_y.sfs" /sdcard/arm/houdini9_y.sfs >nul
+if not exist "%BASE%arm\houdini9_y.sfs" ( echo [A] ARM engine file not found - you can click ENABLE ARM later in the program. & goto armdone )
+"%BASE%adb\adb.exe" root >nul 2>&1
+"%BASE%adb\adb.exe" wait-for-device
+"%BASE%adb\adb.exe" shell su -c "mkdir -p /data/arm && cp /sdcard/arm/houdini9_y.sfs /data/arm/houdini9_y.sfs" >nul 2>&1
+"%BASE%adb\adb.exe" shell su -c "sh /system/bin/enable_nativebridge" >nul 2>&1
+echo [A] ARM support is ON now. Close the Android window ^(press X^).
+:armdone
+echo.
+echo ================================================================
+echo   ALL DONE. From now on:
+echo     Run AndroidRun.exe - START - wait for "Android is READY" -
+echo     drag & drop APKs. ARM apps work, no extra clicks.
 echo.
 echo   For FULL SPEED, enable "Windows Hypervisor Platform":
 echo     Start menu - search "Turn Windows features on or off"
 echo     tick "Windows Hypervisor Platform"  -  restart PC
-echo   Without it, it still works, just in software mode (slower).
 echo ================================================================
 pause
 
